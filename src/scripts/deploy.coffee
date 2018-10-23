@@ -25,6 +25,46 @@ TokenForBrain = Verifiers.VaultKey
 defaultDeploymentEnvironment = () ->
   process.env.HUBOT_DEPLOY_DEFAULT_ENVIRONMENT || 'production'
 
+buildDeployment = (robot, msg, task, force, name, ref, env, hosts, yubikey) ->
+  deployment = new Deployment(name, ref, task, env, force, hosts)
+
+  unless deployment.isValidApp()
+    msg.reply "#{name}? Never heard of it."
+    return
+  unless deployment.isValidEnv()
+    msg.reply "#{name} doesn't seem to have an #{env} environment."
+    return
+  unless deployment.isAllowedRoom(msg.message.user.room)
+    msg.reply "#{name} is not allowed to be deployed from this room."
+    return
+
+  user = robot.brain.userForId msg.envelope.user.id
+  token = robot.vault.forUser(user).get(TokenForBrain)
+  if token?
+    deployment.setUserToken(token)
+
+  deployment.user   = user.id
+  deployment.room   = msg.message.user.room
+
+  if robot.adapterName is "flowdock"
+    deployment.threadId = msg.message.metadata.thread_id
+    deployment.messageId = msg.message.id
+
+  if robot.adapterName is "hipchat"
+    if msg.envelope.user.reply_to?
+      deployment.room = msg.envelope.user.reply_to
+
+  if robot.adapterName is "slack"
+    deployment.user = user.name
+    deployment.room = robot.adapter.client.rtm.dataStore.getChannelGroupOrDMById(msg.message.user.room).name
+
+  deployment.yubikey   = yubikey
+  deployment.adapter   = robot.adapterName
+  deployment.userName  = user.name
+  deployment.robotName = robot.name
+
+  return deployment
+
 ###########################################################################
 module.exports = (robot) ->
   ###########################################################################
@@ -76,7 +116,7 @@ module.exports = (robot) ->
       if robot.adapterName is "hipchat"
         if msg.envelope.user.reply_to?
           deployment.room = msg.envelope.user.reply_to
-          
+
       if robot.adapterName is "slack"
         deployment.user = user.name
         deployment.room = robot.adapter.client.rtm.dataStore.getChannelGroupOrDMById(msg.message.user.room).name
@@ -104,48 +144,31 @@ module.exports = (robot) ->
     hosts = (msg.match[6]||'')
     yubikey = msg.match[7]
 
-    deployment = new Deployment(name, ref, task, env, force, hosts)
+    if name is "v1"
+      deployment = buildDeployment(robot, msg, task, force, "webapp", ref, env, hosts, yubikey)
+      deploymentPhpWorkers = buildDeployment(robot, msg, task, force, "phpworkers", ref, env, hosts, yubikey)
+      deploymentTag = buildDeployment(robot, msg, task, force, "tag", ref, env, hosts, yubikey)
 
-    unless deployment.isValidApp()
-      msg.reply "#{name}? Never heard of it."
-      return
-    unless deployment.isValidEnv()
-      msg.reply "#{name} doesn't seem to have an #{env} environment."
-      return
-    unless deployment.isAllowedRoom(msg.message.user.room)
-      msg.reply "#{name} is not allowed to be deployed from this room."
-      return
+      if process.env.HUBOT_DEPLOY_EMIT_GITHUB_DEPLOYMENTS
+        robot.emit "github_deployment", msg, deployment
+        robot.emit "github_deployment", msg, deploymentPhpWorkers
+        robot.emit "github_deployment", msg, deploymentTag
+      else
+        deployment.post (err, status, body, headers, responseMessage) ->
+          msg.reply responseMessage if responseMessage?
 
-    user = robot.brain.userForId msg.envelope.user.id
-    token = robot.vault.forUser(user).get(TokenForBrain)
-    if token?
-      deployment.setUserToken(token)
+        deploymentPhpWorkers.post (err, status, body, headers, responseMessage) ->
+          msg.reply responseMessage if responseMessage?
 
-    deployment.user   = user.id
-    deployment.room   = msg.message.user.room
-
-    if robot.adapterName is "flowdock"
-      deployment.threadId = msg.message.metadata.thread_id
-      deployment.messageId = msg.message.id
-
-    if robot.adapterName is "hipchat"
-      if msg.envelope.user.reply_to?
-        deployment.room = msg.envelope.user.reply_to
-
-    if robot.adapterName is "slack"
-      deployment.user = user.name
-      deployment.room = robot.adapter.client.rtm.dataStore.getChannelGroupOrDMById(msg.message.user.room).name
-
-    deployment.yubikey   = yubikey
-    deployment.adapter   = robot.adapterName
-    deployment.userName  = user.name
-    deployment.robotName = robot.name
-
-    if process.env.HUBOT_DEPLOY_EMIT_GITHUB_DEPLOYMENTS
-      robot.emit "github_deployment", msg, deployment
+        deploymentTag.post (err, status, body, headers, responseMessage) ->
+          msg.reply responseMessage if responseMessage?
     else
-      deployment.post (err, status, body, headers, responseMessage) ->
-        msg.reply responseMessage if responseMessage?
+      deployment = buildDeployment(robot, msg, task, force, name, ref, env, hosts, yubikey)
+      if process.env.HUBOT_DEPLOY_EMIT_GITHUB_DEPLOYMENTS
+        robot.emit "github_deployment", msg, deployment
+      else
+        deployment.post (err, status, body, headers, responseMessage) ->
+          msg.reply responseMessage if responseMessage?
 
   ###########################################################################
   # deploy:version
