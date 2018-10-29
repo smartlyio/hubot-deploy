@@ -147,13 +147,31 @@ class Deployment
           commitContexts = errors.contexts
 
           namedContexts  = (context.context for context in commitContexts )
-          failedContexts = (context.context for context in commitContexts when context.state isnt 'success')
+          failedContexts = (
+            context.context for context in commitContexts when (
+              context.state isnt 'success' and context.state isnt 'pending'
+            )
+          )
+          pendingContexts = (context.context for context in commitContexts when context.state is 'pending')
+
           if requiredContexts?
             failedContexts.push(context) for context in requiredContexts when context not in namedContexts
 
-          bodyMessage = """
-          Unmet required commit status contexts for #{name}: #{failedContexts.join(',')} failed.
+          pendingMessage = """
+          #{pendingContexts.join(',')} has not yet completed. Try again later.
           """
+
+          failedMessage = """
+          #{failedContexts.join(',')} failed. Check the test results.
+          """
+
+          bodyMessage = "Unmet required commit status contexts for #{name}: "
+
+          if pendingContexts.length >  0
+            bodyMessage += pendingMessage
+
+          if failedContexts.length > 0
+            bodyMessage += failedMessage
 
         if bodyMessage == "Not Found"
           message = "Unable to create deployments for #{repository}. Check your scopes for this token."

@@ -52,6 +52,28 @@ module.exports.cassettes =
           ]
         }
       ]
+  '/repos-atmos-hubot-deploy-deployment-production-create-required-status-pending':
+    host: 'https://api.github.com:443'
+    path: '/repos/atmos/hubot-deploy/deployments'
+    method: 'post'
+    code: 409
+    path: '/repos/atmos/hubot-deploy/deployments'
+    body:
+      message: "Conflict: Commit status checks failed for master"
+      errors: [
+        {
+          contexts: [
+            {
+              context: "continuous-integration/travis-ci/push"
+              state: "pending"
+            },
+            {
+              context: "code-climate"
+              state: "success"
+            }
+          ]
+        }
+      ]
   '/repos-atmos-hubot-deploy-deployment-production-create-auto-merged-failed':
     host: 'https://api.github.com:443'
     path: '/repos/atmos/hubot-deploy/deployments'

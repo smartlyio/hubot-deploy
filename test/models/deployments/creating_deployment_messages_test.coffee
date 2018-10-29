@@ -31,7 +31,7 @@ describe "Deployment#post", () ->
       throw err if err
       assert.equal 409, status
       assert.equal "Conflict: Commit status checks failed for master", body.message
-      assert.equal "Unmet required commit status contexts for hubot-deploy: continuous-integration/travis-ci/push failed.", message
+      assert.equal "Unmet required commit status contexts for hubot-deploy: continuous-integration/travis-ci/push failed. Check the test results.", message
       done()
 
   it "does not create a deployment due to failing required commit statuses", (done) ->
@@ -43,8 +43,19 @@ describe "Deployment#post", () ->
       assert.equal "Conflict: Commit status checks failed for master", body.message
       assert.equal "continuous-integration/travis-ci/push", body.errors[0].contexts[0].context
       assert.equal "code-climate", body.errors[0].contexts[1].context
-      assert.equal "Unmet required commit status contexts for hubot-deploy: continuous-integration/travis-ci/push,code-climate failed.", message
+      assert.equal "Unmet required commit status contexts for hubot-deploy: continuous-integration/travis-ci/push,code-climate failed. Check the test results.", message
       done()
+
+  it "does not create a deployment due to pending required commit statuses", (done) ->
+    VCR.play '/repos-atmos-hubot-deploy-deployment-production-create-required-status-pending'
+    deployment = new Deployment("hubot-deploy", "master", "deploy", "production", "", "")
+    deployment.post (err, status, body, headers, message) ->
+      throw err if err
+      assert.equal 409, status
+      assert.equal "Conflict: Commit status checks failed for master", body.message
+      assert.equal "Unmet required commit status contexts for hubot-deploy: continuous-integration/travis-ci/push has not yet completed. Try again later.", message
+      done()
+
 
   it "sometimes can't auto-merge  when the requested ref is behind the default branch", (done) ->
     VCR.play '/repos-atmos-hubot-deploy-deployment-production-create-auto-merged-failed'
