@@ -12,6 +12,7 @@
   "hubot-deploy": {
     "repository": "atmos/hubot-deploy",
     "environments": ["production", "staging"],
+    "required_contexts": ["continuous-integration/travis-ci/push","code-climate"],
 
     "provider": "npm"
   },

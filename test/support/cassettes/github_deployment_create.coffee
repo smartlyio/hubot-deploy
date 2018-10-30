@@ -183,3 +183,41 @@ module.exports.cassettes =
         id: 6626297
         login: "atmos"
         avatar_url: "https://avatars.githubusercontent.com/u/6626297?v=3"
+  '/repos-atmos-hubot-deploy-deployment-production-query-statuses-pending':
+    host: 'https://api.github.com:443'
+    path: '/repos/atmos/hubot-deploy/commit/master/status'
+    method: 'get'
+    code: 200
+    body:
+      state: "pending",
+      statuses: [
+        {
+          context: "continuous-integration/travis-ci/push"
+          state: "pending"
+          target_url: "https://travis-ci:443/hubot-deploy/master"
+        },
+        {
+          context: "code-climate"
+          state: "success"
+          target_url: "https://code-climate:443/hubot-deploy/master"
+        }
+      ]
+  '/repos-atmos-hubot-deploy-deployment-production-query-statuses-failing':
+    host: 'https://api.github.com:443'
+    path: '/repos/atmos/hubot-deploy/commit/master/status'
+    method: 'get'
+    code: 200
+    body:
+      state: "failure",
+      statuses: [
+        {
+          context: "continuous-integration/travis-ci/push"
+          state: "failure"
+          target_url: "https://travis-ci:443/hubot-deploy/master"
+        },
+        {
+          context: "code-climate"
+          state: "failure"
+          target_url: "https://code-climate:443/hubot-deploy/master"
+        }
+      ]

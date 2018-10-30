@@ -114,7 +114,7 @@ class Deployment
 
     requiredContexts = @requiredContexts
 
-    @rawPost (err, status, body, headers) ->
+    @rawPost (err, status, body, headers) =>
       data = body
 
       if err
@@ -127,6 +127,7 @@ class Deployment
           message = """
           I don't see a successful build for #{repository} that covers the latest \"#{ref}\" branch.
           """
+          return callback(err, status, body, headers, message)
 
         if bodyMessage.match(/Conflict merging ([-_\.0-9a-z]+)/)
           default_branch = data.message.match(/Conflict merging ([-_\.0-9a-z]+)/)[1]
@@ -134,6 +135,7 @@ class Deployment
           There was a problem merging the #{default_branch} for #{repository} into #{ref}.
           You'll need to merge it manually, or disable auto-merging.
           """
+          return callback(err, status, body, headers, message)
 
         if bodyMessage.match(/Merged ([-_\.0-9a-z]+) into/)
           tmpMessage = """
@@ -141,6 +143,7 @@ class Deployment
           Normal push notifications should provide feedback.
           """
           console.log tmpMessage
+          return callback(err, status, body, headers, message)
 
         if bodyMessage.match(/Conflict: Commit status checks/)
           errors = data['errors'][0]
@@ -154,24 +157,29 @@ class Deployment
           )
           pendingContexts = (context.context for context in commitContexts when context.state is 'pending')
 
-          if requiredContexts?
-            failedContexts.push(context) for context in requiredContexts when context not in namedContexts
+          failedContexts.push(context) for context in requiredContexts when context not in namedContexts
 
-          pendingMessage = """
-          #{pendingContexts.join(',')} has not yet completed. Try again later.
-          """
+          message = "Unable to deploy, commit status is not green for #{name}: "
 
-          failedMessage = """
-          #{failedContexts.join(',')} failed. Check the test results.
-          """
+          return @getRepoStatuses (errStatus, statusStatus, bodyStatus, headersStatus) ->
+            pendingCommitStatuses = []
+            failedCommitStatuses = []
+            statusData = bodyStatus
+            if !errStatus and statusData['statuses']
+              for commitStatus in statusData.statuses when commitStatus.context in requiredContexts
+                if commitStatus.state isnt 'success'
+                  if commitStatus.state is 'pending'
+                    message += "[#{commitStatus.context}](#{commitStatus.target_url}) has not completed yet. "
+                  else
+                    message += "[#{commitStatus.context}](#{commitStatus.target_url}) has failed. "
+            else
+              if pendingContexts.length >  0
+                message += "#{pendingContexts.join(',')} has not yet completed. Try again later."
 
-          bodyMessage = "Unmet required commit status contexts for #{name}: "
+              if failedContexts.length > 0
+                message += "#{failedContexts.join(',')} failed. Check the test results."
 
-          if pendingContexts.length >  0
-            bodyMessage += pendingMessage
-
-          if failedContexts.length > 0
-            bodyMessage += failedMessage
+            callback(err, status, body, headers, message)
 
         if bodyMessage == "Not Found"
           message = "Unable to create deployments for #{repository}. Check your scopes for this token."
@@ -179,6 +187,12 @@ class Deployment
           message = bodyMessage
 
       callback(err, status, body, headers, message)
+
+  getRepoStatuses: (callback) ->
+    path       = @apiConfig().path("repos/#{@repository}/commit/#{@ref}/status")
+
+    @api().get path, {}, (err, status, body, headers) ->
+      callback(err, status, body, headers)
 
   rawPost: (callback) ->
     path       = @apiConfig().path("repos/#{@repository}/deployments")
@@ -206,6 +220,9 @@ class Deployment
   configureRequiredContexts: ->
     if @application['required_contexts']?
       @requiredContexts = @application['required_contexts']
+    else
+      @requiredContexts = [ ]
+
     if @force
       @requiredContexts = [ ]
 
