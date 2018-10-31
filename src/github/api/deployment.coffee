@@ -189,7 +189,7 @@ class Deployment
       callback(err, status, body, headers, message)
 
   getRepoStatuses: (callback) ->
-    path       = @apiConfig().path("repos/#{@repository}/commit/#{@ref}/status")
+    path       = @apiConfig().path("repos/#{@repository}/commits/#{@ref}/status")
 
     @api().get path, {}, (err, status, body, headers) ->
       callback(err, status, body, headers)

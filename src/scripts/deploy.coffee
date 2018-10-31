@@ -164,11 +164,12 @@ module.exports = (robot) ->
           msg.reply responseMessage if responseMessage?
     else
       deployment = buildDeployment(robot, msg, task, force, name, ref, env, hosts, yubikey)
-      if process.env.HUBOT_DEPLOY_EMIT_GITHUB_DEPLOYMENTS
-        robot.emit "github_deployment", msg, deployment
-      else
-        deployment.post (err, status, body, headers, responseMessage) ->
-          msg.reply responseMessage if responseMessage?
+      if deployment?
+        if process.env.HUBOT_DEPLOY_EMIT_GITHUB_DEPLOYMENTS
+          robot.emit "github_deployment", msg, deployment
+        else
+          deployment.post (err, status, body, headers, responseMessage) ->
+            msg.reply responseMessage if responseMessage?
 
   ###########################################################################
   # deploy:version
