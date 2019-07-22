@@ -148,11 +148,13 @@ module.exports = (robot) ->
       deployment = buildDeployment(robot, msg, task, force, "webapp", ref, env, hosts, yubikey)
       deploymentPhpWorkers = buildDeployment(robot, msg, task, force, "phpworkers", ref, env, hosts, yubikey)
       deploymentTag = buildDeployment(robot, msg, task, force, "tag", ref, env, hosts, yubikey)
+      deploymentImgapi = buildDeployment(robot, msg, task, force, "imgapi", ref, env, hosts, yubikey)
 
       if process.env.HUBOT_DEPLOY_EMIT_GITHUB_DEPLOYMENTS
         robot.emit "github_deployment", msg, deployment
         robot.emit "github_deployment", msg, deploymentPhpWorkers
         robot.emit "github_deployment", msg, deploymentTag
+        robot.emit "github_deployment", msg, deploymentImgapi
       else
         deployment.post (err, status, body, headers, responseMessage) ->
           msg.reply responseMessage if responseMessage?
@@ -161,6 +163,9 @@ module.exports = (robot) ->
           msg.reply responseMessage if responseMessage?
 
         deploymentTag.post (err, status, body, headers, responseMessage) ->
+          msg.reply responseMessage if responseMessage?
+
+        deploymentImgapi.post (err, status, body, headers, responseMessage) ->
           msg.reply responseMessage if responseMessage?
     else
       deployment = buildDeployment(robot, msg, task, force, name, ref, env, hosts, yubikey)
