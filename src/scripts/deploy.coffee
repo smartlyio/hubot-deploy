@@ -43,20 +43,8 @@ buildDeployment = (robot, msg, task, force, name, ref, env, hosts, yubikey) ->
   if token?
     deployment.setUserToken(token)
 
-  deployment.user   = user.id
-  deployment.room   = msg.message.user.room
-
-  if robot.adapterName is "flowdock"
-    deployment.threadId = msg.message.metadata.thread_id
-    deployment.messageId = msg.message.id
-
-  if robot.adapterName is "hipchat"
-    if msg.envelope.user.reply_to?
-      deployment.room = msg.envelope.user.reply_to
-
-  if robot.adapterName is "slack"
-    deployment.user = user.name
-    deployment.room = robot.adapter.client.rtm.dataStore.getChannelGroupOrDMById(msg.message.user.room).name
+  deployment.user = user.name
+  deployment.room = robot.adapter.client.rtm.dataStore.getChannelGroupOrDMById(msg.message.user.room).name
 
   deployment.yubikey   = yubikey
   deployment.adapter   = robot.adapterName
@@ -75,10 +63,13 @@ module.exports = (robot) ->
     name = msg.match[1]
 
     try
+      if !msg.message.thread_ts
+        msg.message.thread_ts = msg.message.rawMessage.ts
+
       deployment = new Deployment(name)
       formatter  = new Formatters.WhereFormatter(deployment)
 
-      robot.emit "hubot_deploy_available_environments", msg, deployment, formatter
+      robot.emit "hubot_deploy_available_environments", msg, deployment
 
     catch err
       robot.logger.info "Exploded looking for deployment locations: #{err}"
@@ -92,6 +83,9 @@ module.exports = (robot) ->
     environment = msg.match[4] || ""
 
     try
+      if !msg.message.thread_ts
+        msg.message.thread_ts = msg.message.rawMessage.ts
+
       deployment = new Deployment(name, null, null, environment)
       unless deployment.isValidApp()
         msg.reply "#{name}? Never heard of it."
@@ -106,20 +100,8 @@ module.exports = (robot) ->
       if token?
         deployment.setUserToken(token)
 
-      deployment.user   = user.id
-      deployment.room   = msg.message.user.room
-
-      if robot.adapterName is "flowdock"
-        deployment.threadId = msg.message.metadata.thread_id
-        deployment.messageId = msg.message.id
-
-      if robot.adapterName is "hipchat"
-        if msg.envelope.user.reply_to?
-          deployment.room = msg.envelope.user.reply_to
-
-      if robot.adapterName is "slack"
-        deployment.user = user.name
-        deployment.room = robot.adapter.client.rtm.dataStore.getChannelGroupOrDMById(msg.message.user.room).name
+      deployment.user = user.name
+      deployment.room = robot.adapter.client.rtm.dataStore.getChannelGroupOrDMById(msg.message.user.room).name
 
       deployment.adapter   = robot.adapterName
       deployment.robotName = robot.name
@@ -143,6 +125,9 @@ module.exports = (robot) ->
     env   = (msg.match[5]||defaultDeploymentEnvironment())
     hosts = (msg.match[6]||'')
     yubikey = msg.match[7]
+
+    if !msg.message.thread_ts
+      msg.message.thread_ts = msg.message.rawMessage.ts
 
     if name is "v1"
       deployment = buildDeployment(robot, msg, task, force, "webapp", ref, env, hosts, yubikey)
@@ -181,4 +166,6 @@ module.exports = (robot) ->
   #
   # Useful for debugging
   robot.respond ///#{DeployPrefix}\:version$///i, id: "hubot-deploy.version", (msg) ->
+    if !msg.message.thread_ts
+        msg.message.thread_ts = msg.message.rawMessage.ts
     msg.send "hubot-deploy v#{Version}/hubot v#{robot.version}/node #{process.version}"
