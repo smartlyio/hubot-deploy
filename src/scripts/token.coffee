@@ -26,6 +26,9 @@ module.exports = (robot) ->
       user  = robot.brain.userForId msg.envelope.user.id
       token = msg.match[1]
 
+      if !msg.message.thread_ts
+        msg.message.thread_ts = msg.message.rawMessage.ts
+
       # Versions of hubot-deploy < 0.9.0 stored things unencrypted, encrypt them.
       delete(user.githubDeployToken)
 
@@ -40,6 +43,10 @@ module.exports = (robot) ->
     robot.respond ///#{DeployPrefix}-token:reset:github$///i, id: "hubot-deploy.token.reset", (msg) ->
       user = robot.brain.userForId msg.envelope.user.id
       robot.vault.forUser(user).unset(TokenForBrain)
+
+      if !msg.message.thread_ts
+        msg.message.thread_ts = msg.message.rawMessage.ts
+
       # Versions of hubot-deploy < 0.9.0 stored things unencrypted, encrypt them.
       delete(user.githubDeployToken)
       msg.reply "I nuked your GitHub token. I'll try to use my default token until you configure another."
@@ -47,6 +54,10 @@ module.exports = (robot) ->
     robot.respond ///#{DeployPrefix}-token:verify:github$///i, id: "hubot-deploy.token.verify",  (msg) ->
       user = robot.brain.userForId msg.envelope.user.id
       # Versions of hubot-deploy < 0.9.0 stored things unencrypted, encrypt them.
+
+      if !msg.message.thread_ts
+        msg.message.thread_ts = msg.message.rawMessage.ts
+
       delete(user.githubDeployToken)
       token = robot.vault.forUser(user).get(TokenForBrain)
       verifier = new ApiTokenVerifier(token)
